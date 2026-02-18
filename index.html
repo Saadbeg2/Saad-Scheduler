@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Timetable</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="day-header">
+        <button id="prevDayBtn" class="btn ghost" type="button" aria-label="Previous day">Prev</button>
+        <div class="day-title-wrap">
+          <p class="day-label" id="dayLabel">Today</p>
+          <h1 id="currentDateLabel">Loading...</h1>
+        </div>
+        <button id="nextDayBtn" class="btn ghost" type="button" aria-label="Next day">Next</button>
+        <div class="header-switch-row">
+          <span>Execution Mode</span>
+          <label class="switch">
+            <input id="executionModeToggle" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </header>
+
+      <section class="jump-row card">
+        <label for="jumpDate">Jump to date</label>
+        <input id="jumpDate" type="date" />
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Major Events</h2>
+        </div>
+        <form id="majorEventForm" class="inline-form" autocomplete="off">
+          <input id="majorEventInput" type="text" maxlength="120" placeholder="Exam for Data Science 2" required />
+          <button class="btn" type="submit">Add</button>
+        </form>
+        <ul id="majorEventsList" class="chip-list"></ul>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Anchors</h2>
+          <button id="resetAnchorsBtn" class="btn ghost" type="button">Use Defaults</button>
+        </div>
+
+        <div class="switch-row">
+          <span>Night Owl Mode</span>
+          <label class="switch">
+            <input id="nightOwlToggle" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="anchor-grid">
+          <label>
+            Wake time
+            <input id="wakeTimeInput" type="time" />
+          </label>
+          <label>
+            Sleep time
+            <input id="sleepTimeInput" type="time" />
+          </label>
+          <label>
+            Wake notes
+            <input id="wakeNotesInput" type="text" maxlength="140" placeholder="Optional" />
+          </label>
+          <label>
+            Sleep notes
+            <input id="sleepNotesInput" type="text" maxlength="140" placeholder="Optional" />
+          </label>
+        </div>
+        <p id="sleepHint" class="hint">Recommended sleep window: 20:00-02:00 when Night Owl is off.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Schedule</h2>
+        </div>
+
+        <div id="nowNextStrip" class="now-next-strip">
+          <p id="nowLine">Now: No active block</p>
+          <p id="nextLine">Next: Nothing scheduled</p>
+        </div>
+
+        <form id="entryForm" class="entry-form" autocomplete="off">
+          <h3 class="form-heading full">Add Block</h3>
+          <input id="entryId" type="hidden" />
+          <label>
+            Start
+            <input id="startInput" type="time" required />
+          </label>
+          <label>
+            End
+            <input id="endInput" type="time" required />
+          </label>
+          <label class="full">
+            Block
+            <input id="titleInput" type="text" maxlength="120" required placeholder="Work, Study, Gym, Travel, Class, Iftar" />
+          </label>
+          <label class="full">
+            Notes
+            <textarea id="notesInput" rows="3" maxlength="500" placeholder="Optional details for execution"></textarea>
+          </label>
+          <div class="entry-actions">
+            <button id="saveEntryBtn" class="btn" type="submit">Add Block</button>
+            <button id="cancelEditBtn" class="btn ghost hidden" type="button">Cancel</button>
+          </div>
+        </form>
+
+        <ul id="entriesList" class="entry-list"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
