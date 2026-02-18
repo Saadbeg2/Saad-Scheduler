@@ -14,6 +14,8 @@ let state = structuredClone(BASE_STATE);
 let selectedDate = "";
 let planMode = false; // Session-only mode, always false on reload.
 let nowNextTimer = null;
+let startWasAutoFilled = false;
+let startProgrammaticUpdate = false;
 const missingFeatureLog = new Set();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -43,7 +45,7 @@ function cacheElements() {
     majorEventsView: document.getElementById("majorEventsView"),
     majorEventsViewList: document.getElementById("majorEventsViewList"),
     scheduleCard: document.getElementById("scheduleCard"),
-    sleepWakeRow: document.getElementById("sleepWakeRow"),
+    sleepWakeEditor: document.getElementById("sleepWakeEditor"),
     nowNextStrip: document.getElementById("nowNextStrip"),
     nowLine: document.getElementById("nowLine"),
     nextLine: document.getElementById("nextLine"),
@@ -55,7 +57,8 @@ function cacheElements() {
     majorEventInput: document.getElementById("majorEventInput"),
     majorEventsEditList: document.getElementById("majorEventsEditList"),
     wakeTimeInput: document.getElementById("wakeTimeInput"),
-    sleepTimeInput: document.getElementById("sleepTimeInput"),
+    sleepStartInput: document.getElementById("sleepStartInput"),
+    sleepEndInput: document.getElementById("sleepEndInput"),
     wakeNotesInput: document.getElementById("wakeNotesInput"),
     sleepNotesInput: document.getElementById("sleepNotesInput"),
     entryForm: document.getElementById("entryForm"),
@@ -147,16 +150,46 @@ function bindEvents() {
     }
   });
 
-  // Keep sleep/wake fields persisted per day from the compact row.
-  [els.wakeTimeInput, els.sleepTimeInput, els.wakeNotesInput, els.sleepNotesInput].forEach((input) => {
+  // Sleep/Wake is configured in Plan Mode and persisted into day.wake/day.sleep.
+  [els.wakeTimeInput, els.sleepStartInput, els.sleepEndInput, els.wakeNotesInput, els.sleepNotesInput].forEach((input) => {
     on(input, "change", () => {
+      if (!planMode) return;
       const day = getCurrentDay();
-      day.anchors.wake.time = els.wakeTimeInput?.value || day.anchors.wake.time;
-      day.anchors.sleep.time = els.sleepTimeInput?.value || day.anchors.sleep.time;
-      day.anchors.wake.notes = (els.wakeNotesInput?.value || "").trim();
-      day.anchors.sleep.notes = (els.sleepNotesInput?.value || "").trim();
-      persistAndRender(false);
+      const wakeValue = (els.wakeTimeInput?.value || "").trim();
+      const sleepStart = (els.sleepStartInput?.value || "").trim();
+      const sleepEnd = (els.sleepEndInput?.value || "").trim();
+
+      day.wake.set = Boolean(wakeValue);
+      day.wake.time = wakeValue || state.defaults.wakeTime;
+      day.wake.notes = (els.wakeNotesInput?.value || "").trim();
+
+      day.sleep.set = Boolean(sleepStart);
+      day.sleep.start = sleepStart || state.defaults.sleepTime;
+      day.sleep.end = sleepEnd;
+      day.sleep.notes = (els.sleepNotesInput?.value || "").trim();
+
+      // Keep legacy anchors in sync for backward compatibility.
+      day.anchors.wake.time = day.wake.time;
+      day.anchors.wake.notes = day.wake.notes;
+      day.anchors.sleep.time = day.sleep.start;
+      day.anchors.sleep.notes = day.sleep.notes;
+      persistAndRender();
     });
+  });
+
+  on(els.startInput, "input", () => {
+    if (startProgrammaticUpdate) return;
+    startWasAutoFilled = false;
+  });
+
+  on(els.endInput, "change", () => {
+    const endValue = (els.endInput?.value || "").trim();
+    const startValue = (els.startInput?.value || "").trim();
+    if (!endValue) return;
+
+    if (!startValue || startWasAutoFilled) {
+      applyAutoStart(endValue);
+    }
   });
 
   on(els.entryForm, "submit", (event) => {
@@ -200,6 +233,7 @@ function saveEntry() {
   const day = getCurrentDay();
   const id = els.entryId.value || generateId();
   const payload = { id, start, end, title, notes };
+  const isEditing = Boolean(els.entryId.value);
 
   const existingIndex = day.entries.findIndex((entry) => entry.id === id);
   if (existingIndex > -1) {
@@ -209,7 +243,11 @@ function saveEntry() {
   }
 
   day.entries.sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
-  resetEntryForm();
+  if (isEditing) {
+    resetEntryForm();
+  } else {
+    prepareFormAfterAdd(end);
+  }
   persistAndRender();
 }
 
@@ -229,6 +267,7 @@ function startEditEntry(id) {
   els.notesInput.value = entry.notes || "";
   els.saveEntryBtn.textContent = "Save Changes";
   els.cancelEditBtn.classList.remove("hidden");
+  startWasAutoFilled = false;
   els.titleInput.focus();
 }
 
@@ -244,14 +283,26 @@ function resetEntryForm() {
   if (els.entryId) els.entryId.value = "";
   if (els.saveEntryBtn) els.saveEntryBtn.textContent = "Add Block";
   if (els.cancelEditBtn) els.cancelEditBtn.classList.add("hidden");
+  startWasAutoFilled = false;
 }
 
-function selectDate(isoDate) {
-  selectedDate = isoDate;
-  ensureDay(selectedDate);
-  planMode = false;
-  resetEntryForm();
-  render();
+function applyAutoStart(value) {
+  if (!els.startInput) return;
+  startProgrammaticUpdate = true;
+  els.startInput.value = value;
+  startProgrammaticUpdate = false;
+  startWasAutoFilled = true;
+}
+
+function prepareFormAfterAdd(nextStart) {
+  if (!els.entryId || !els.endInput || !els.titleInput || !els.notesInput) return;
+  els.entryId.value = "";
+  if (els.saveEntryBtn) els.saveEntryBtn.textContent = "Add Block";
+  if (els.cancelEditBtn) els.cancelEditBtn.classList.add("hidden");
+  applyAutoStart(nextStart);
+  els.endInput.value = "";
+  els.titleInput.value = "";
+  els.notesInput.value = "";
 }
 
 // Defensive parser keeps legacy shape and sanitizes malformed local storage.
@@ -280,21 +331,37 @@ function normalizeState(input) {
       for (const [date, day] of Object.entries(input.days)) {
         if (!isISODate(date) || !day || typeof day !== "object") continue;
 
+        const legacyWakeTime = isTime(day.anchors?.wake?.time) ? day.anchors.wake.time : output.defaults.wakeTime;
+        const legacyWakeNotes = typeof day.anchors?.wake?.notes === "string" ? day.anchors.wake.notes : "";
+        const legacySleepStart = isTime(day.anchors?.sleep?.time) ? day.anchors.sleep.time : output.defaults.sleepTime;
+        const legacySleepNotes = typeof day.anchors?.sleep?.notes === "string" ? day.anchors.sleep.notes : "";
+
+        const wakeTime = isTime(day.wake?.time) ? day.wake.time : legacyWakeTime;
+        const wakeNotes = typeof day.wake?.notes === "string" ? day.wake.notes : legacyWakeNotes;
+        const wakeSet = Boolean(day.wake?.set ?? day.sleepWake?.wakeSet ?? day.wakeSet ?? false) && isTime(wakeTime);
+
+        const sleepStart = isTime(day.sleep?.start) ? day.sleep.start : legacySleepStart;
+        const sleepEnd = isTime(day.sleep?.end) ? day.sleep.end : "";
+        const sleepNotes = typeof day.sleep?.notes === "string" ? day.sleep.notes : legacySleepNotes;
+        const sleepSet = Boolean(day.sleep?.set ?? day.sleepWake?.sleepSet ?? day.sleepSet ?? false) && isTime(sleepStart);
+
         output.days[date] = {
           date,
           nightOwl: Boolean(day.nightOwl),
+          wake: { time: wakeTime, notes: wakeNotes, set: wakeSet },
+          sleep: { start: sleepStart, end: sleepEnd, notes: sleepNotes, set: sleepSet },
           majorEvents: Array.isArray(day.majorEvents)
             ? day.majorEvents.filter((event) => typeof event === "string").map((event) => event.trim()).filter(Boolean)
             : [],
           entries: normalizeEntries(day.entries),
           anchors: {
             wake: {
-              time: isTime(day.anchors?.wake?.time) ? day.anchors.wake.time : output.defaults.wakeTime,
-              notes: typeof day.anchors?.wake?.notes === "string" ? day.anchors.wake.notes : "",
+              time: wakeTime,
+              notes: wakeNotes,
             },
             sleep: {
-              time: isTime(day.anchors?.sleep?.time) ? day.anchors.sleep.time : output.defaults.sleepTime,
-              notes: typeof day.anchors?.sleep?.notes === "string" ? day.anchors.sleep.notes : "",
+              time: sleepStart,
+              notes: sleepNotes,
             },
           },
         };
@@ -327,6 +394,8 @@ function ensureDay(date) {
   state.days[date] = {
     date,
     nightOwl: state.defaults.nightOwlEnabledByDefault,
+    wake: { time: state.defaults.wakeTime, notes: "", set: false },
+    sleep: { start: state.defaults.sleepTime, end: "", notes: "", set: false },
     majorEvents: [],
     entries: [],
     anchors: {
@@ -346,7 +415,7 @@ function getCurrentDay() {
 function persistAndRender(full = true) {
   saveState();
   if (full) render();
-  else renderAnchors();
+  else renderSleepWakeEditor();
 }
 
 function saveState() {
@@ -416,13 +485,12 @@ function renderNowNext() {
   els.nowNextStrip.classList.toggle("hidden", !showNowNext);
   if (!showNowNext) return;
 
-  const entries = getCurrentDay().entries;
+  const day = getCurrentDay();
+  const blocks = getTimedBlocks(day);
   const nowMins = getNowMinutes();
 
-  const current = entries.find((entry) => isActiveEntryNow(entry, nowMins));
-  const next = entries
-    .filter((entry) => toMinutes(entry.start) > nowMins)
-    .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
+  const current = blocks.find((item) => isActiveEntryNow(item, nowMins));
+  const next = blocks.filter((item) => toMinutes(item.start) > nowMins).sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
 
   els.nowLine.textContent = current ? `Now: ${formatEntryLabel(current)}` : "Now: No active block";
   els.nextLine.textContent = next ? `Next: ${formatEntryLabel(next)}` : "Next: Nothing scheduled";
@@ -431,52 +499,113 @@ function renderNowNext() {
 function renderEntries() {
   if (!els.entriesList) return;
   const day = getCurrentDay();
-  const entries = day.entries;
+  const items = getScheduleItems(day);
   const isToday = selectedDate === getTodayISO();
   const nowMins = getNowMinutes();
 
-  if (!entries.length) {
+  if (!items.length) {
     els.entriesList.innerHTML = isUnplannedDay(day)
       ? ""
       : `<li class="entry-card"><p class="entry-notes">No blocks scheduled.</p></li>`;
     return;
   }
 
-  els.entriesList.innerHTML = entries
-    .map((entry) => {
-      const overnight = toMinutes(entry.end) < toMinutes(entry.start);
-      const active = isToday && isActiveEntryNow(entry, nowMins);
-      const actions = planMode
-        ? `<div class="entry-actions-inline">
-            <button class="btn ghost" type="button" data-action="edit" data-id="${entry.id}">Edit</button>
-            <button class="btn danger" type="button" data-action="delete" data-id="${entry.id}">Delete</button>
-          </div>`
-        : "";
-
-      return `
-        <li class="entry-card ${active ? "active" : ""}">
-          <div class="entry-row">
-            <div class="entry-main">
-              <span class="entry-time">${entry.start}-${entry.end} ${overnight ? `<span class="small">(+1 day)</span>` : ""}</span>
-              <strong class="entry-title">${escapeHTML(entry.title)}</strong>
-            </div>
-            ${actions}
-          </div>
-          ${entry.notes ? `<p class="entry-notes">${escapeHTML(entry.notes)}</p>` : ""}
-        </li>
-      `;
-    })
+  els.entriesList.innerHTML = items
+    .map((item) => renderScheduleItem(item, isToday, nowMins))
     .join("");
+}
+
+function renderScheduleItem(item, isToday, nowMins) {
+  const overnight = item.kind !== "wake" && item.end && toMinutes(item.end) < toMinutes(item.start);
+  const isTimedBlock = item.kind !== "wake" && item.end;
+  const active = isToday && isTimedBlock && isActiveEntryNow(item, nowMins);
+
+  let timeLabel = "";
+  if (item.kind === "wake") {
+    timeLabel = "";
+  } else if (item.end) {
+    const startFmt = formatClockTime(item.start);
+    const endFmt = formatClockTime(item.end);
+    timeLabel = `${startFmt}-${endFmt} ${overnight ? `<span class="small">(+1 day)</span>` : ""}`;
+  } else {
+    timeLabel = formatClockTime(item.start);
+  }
+
+  const actions =
+    planMode && item.kind === "entry"
+      ? `<div class="entry-actions-inline">
+          <button class="btn ghost" type="button" data-action="edit" data-id="${item.id}">Edit</button>
+          <button class="btn danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>
+        </div>`
+      : "";
+
+  const rowClass =
+    item.kind === "wake"
+      ? "entry-card wake-marker"
+      : item.kind === "sleep"
+        ? `entry-card sleep-block ${active ? "active" : ""}`
+        : `entry-card ${active ? "active" : ""}`;
+
+  return `
+    <li class="${rowClass.trim()}">
+      <div class="entry-row">
+        <div class="entry-main">
+          ${timeLabel ? `<span class="entry-time">${timeLabel}</span>` : ""}
+          <strong class="entry-title">${escapeHTML(item.title)}</strong>
+        </div>
+        ${actions}
+      </div>
+      ${item.notes ? `<p class="entry-notes">${escapeHTML(item.notes)}</p>` : ""}
+    </li>
+  `;
+}
+
+function getScheduleItems(day) {
+  const items = day.entries.map((entry) => ({ ...entry, kind: "entry" }));
+
+  if (day.wake?.set && isTime(day.wake.time)) {
+    items.push({
+      kind: "wake",
+      start: day.wake.time,
+      title: `Wake up — ${formatClockTime(day.wake.time)}`,
+      notes: day.wake.notes || "",
+    });
+  }
+
+  if (day.sleep?.set && isTime(day.sleep.start)) {
+    const sleepRange = day.sleep.end
+      ? `${formatClockTime(day.sleep.start)}-${formatClockTime(day.sleep.end)}`
+      : `${formatClockTime(day.sleep.start)}`;
+    items.push({
+      kind: "sleep",
+      start: day.sleep.start,
+      end: isTime(day.sleep.end) ? day.sleep.end : "",
+      title: `Sleep — ${sleepRange}`,
+      notes: day.sleep.notes || "",
+    });
+  }
+
+  items.sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+  return items;
+}
+
+function getTimedBlocks(day) {
+  const blocks = day.entries.map((entry) => ({ start: entry.start, end: entry.end, title: entry.title }));
+  if (day.sleep?.set && isTime(day.sleep.start) && isTime(day.sleep.end)) {
+    blocks.push({ start: day.sleep.start, end: day.sleep.end, title: "Sleep" });
+  }
+  return blocks.sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
 }
 
 function renderPlanningPanel() {
   if (!els.planningPanel) return;
   els.planningPanel.classList.toggle("hidden", !planMode);
+  if (els.sleepWakeEditor) els.sleepWakeEditor.classList.toggle("hidden", !planMode);
 
   if (!planMode) return;
 
   renderMajorEventsEditor();
-  renderAnchors();
+  renderSleepWakeEditor();
 }
 
 function renderMajorEventsEditor() {
@@ -500,12 +629,13 @@ function renderMajorEventsEditor() {
     .join("");
 }
 
-function renderAnchors() {
+function renderSleepWakeEditor() {
   const day = getCurrentDay();
-  if (els.wakeTimeInput) els.wakeTimeInput.value = day.anchors.wake.time;
-  if (els.sleepTimeInput) els.sleepTimeInput.value = day.anchors.sleep.time;
-  if (els.wakeNotesInput) els.wakeNotesInput.value = day.anchors.wake.notes;
-  if (els.sleepNotesInput) els.sleepNotesInput.value = day.anchors.sleep.notes;
+  if (els.wakeTimeInput) els.wakeTimeInput.value = day.wake?.set ? day.wake.time : "";
+  if (els.sleepStartInput) els.sleepStartInput.value = day.sleep?.set ? day.sleep.start : "";
+  if (els.sleepEndInput) els.sleepEndInput.value = day.sleep?.end || "";
+  if (els.wakeNotesInput) els.wakeNotesInput.value = day.wake?.notes || "";
+  if (els.sleepNotesInput) els.sleepNotesInput.value = day.sleep?.notes || "";
 }
 
 function startNowNextTicker() {
@@ -518,7 +648,7 @@ function startNowNextTicker() {
 }
 
 function isUnplannedDay(day) {
-  return day.majorEvents.length === 0 && day.entries.length === 0;
+  return day.majorEvents.length === 0 && day.entries.length === 0 && !day.wake?.set && !day.sleep?.set;
 }
 
 function getTodayISO() {
@@ -545,6 +675,14 @@ function isISODate(value) {
 function toMinutes(time) {
   const [hour, minute] = time.split(":").map(Number);
   return hour * 60 + minute;
+}
+
+function formatClockTime(time) {
+  if (!isTime(time)) return "";
+  const [hourRaw, minute] = time.split(":").map(Number);
+  const period = hourRaw >= 12 ? "PM" : "AM";
+  const hour12 = hourRaw % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
 function getNowMinutes() {

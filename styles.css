@@ -20,6 +20,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  overflow-x: hidden;
 }
 
 .app {
@@ -100,6 +101,7 @@ button {
 input,
 textarea {
   width: 100%;
+  max-width: 100%;
   background: #121216;
   color: var(--text);
   border: 1px solid var(--border);
@@ -170,18 +172,6 @@ label {
   margin-bottom: 0.6rem;
 }
 
-.sleep-wake-row {
-  margin-bottom: 0.5rem;
-  padding: 0 0 0.45rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.sleep-wake-row h3 {
-  font-size: 0.86rem;
-  color: var(--muted);
-  margin-bottom: 0.35rem;
-}
-
 .sleep-wake-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -190,6 +180,7 @@ label {
 
 .sleep-wake-grid label {
   gap: 0.22rem;
+  min-width: 0;
 }
 
 .sleep-wake-grid input[type="time"] {
@@ -200,6 +191,13 @@ label {
   padding: 0.36rem 0.52rem;
   font-size: 0.78rem;
   color: #b8b8c0;
+}
+
+.entry-form > *,
+.inline-form > *,
+.section-head > *,
+.entry-row > * {
+  min-width: 0;
 }
 
 .now-next-strip p {
@@ -229,6 +227,15 @@ label {
 .entry-card.active {
   border-color: #4a4a53;
   background: #232329;
+}
+
+.entry-card.wake-marker {
+  border-style: dashed;
+  background: #1a1a1f;
+}
+
+.entry-card.sleep-block {
+  background: #202027;
 }
 
 .entry-row {

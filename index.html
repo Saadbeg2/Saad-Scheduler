@@ -30,22 +30,6 @@
           </div>
         </div>
 
-        <section id="sleepWakeRow" class="sleep-wake-row">
-          <h3>Sleep &amp; Wake</h3>
-          <div class="sleep-wake-grid">
-            <label>
-              Sleep time
-              <input id="sleepTimeInput" type="time" />
-              <input id="sleepNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
-            </label>
-            <label>
-              Wake time
-              <input id="wakeTimeInput" type="time" />
-              <input id="wakeNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
-            </label>
-          </div>
-        </section>
-
         <div id="nowNextStrip" class="now-next-strip hidden">
           <p id="nowLine">Now: No active block</p>
           <p id="nextLine">Next: Nothing scheduled</p>
@@ -69,6 +53,26 @@
             <button class="btn" type="submit">Add</button>
           </form>
           <ul id="majorEventsEditList" class="compact-list"></ul>
+        </section>
+
+        <section id="sleepWakeEditor" class="card">
+          <h3 class="form-heading">Sleep / Wake</h3>
+          <div class="sleep-wake-grid">
+            <label>
+              Wake time
+              <input id="wakeTimeInput" type="time" />
+              <input id="wakeNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
+            </label>
+            <label>
+              Sleep start
+              <input id="sleepStartInput" type="time" />
+            </label>
+            <label>
+              Sleep end
+              <input id="sleepEndInput" type="time" />
+              <input id="sleepNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
+            </label>
+          </div>
         </section>
 
         <section class="card">
