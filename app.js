@@ -13,12 +13,24 @@ const els = {
   dayLabel: document.getElementById("dayLabel"),
   currentDateLabel: document.getElementById("currentDateLabel"),
   prevDayBtn: document.getElementById("prevDayBtn"),
-  nextDayBtn: document.getElementById("nextDayBtn"),
-  executionModeToggle: document.getElementById("executionModeToggle"),
+  jumpToggleBtn: document.getElementById("jumpToggleBtn"),
+  editDayBtn: document.getElementById("editDayBtn"),
+  doneBtn: document.getElementById("doneBtn"),
+  jumpPanel: document.getElementById("jumpPanel"),
   jumpDate: document.getElementById("jumpDate"),
+  majorEventsView: document.getElementById("majorEventsView"),
+  majorEventsViewList: document.getElementById("majorEventsViewList"),
+  scheduleCard: document.getElementById("scheduleCard"),
+  nowNextStrip: document.getElementById("nowNextStrip"),
+  nowLine: document.getElementById("nowLine"),
+  nextLine: document.getElementById("nextLine"),
+  emptyState: document.getElementById("emptyState"),
+  planDayBtn: document.getElementById("planDayBtn"),
+  entriesList: document.getElementById("entriesList"),
+  planningPanel: document.getElementById("planningPanel"),
   majorEventForm: document.getElementById("majorEventForm"),
   majorEventInput: document.getElementById("majorEventInput"),
-  majorEventsList: document.getElementById("majorEventsList"),
+  majorEventsEditList: document.getElementById("majorEventsEditList"),
   nightOwlToggle: document.getElementById("nightOwlToggle"),
   wakeTimeInput: document.getElementById("wakeTimeInput"),
   sleepTimeInput: document.getElementById("sleepTimeInput"),
@@ -34,38 +46,55 @@ const els = {
   notesInput: document.getElementById("notesInput"),
   saveEntryBtn: document.getElementById("saveEntryBtn"),
   cancelEditBtn: document.getElementById("cancelEditBtn"),
-  entriesList: document.getElementById("entriesList"),
-  nowNextStrip: document.getElementById("nowNextStrip"),
-  nowLine: document.getElementById("nowLine"),
-  nextLine: document.getElementById("nextLine"),
 };
 
 let state = loadState();
 let selectedDate = getTodayISO();
+let planMode = false; // Session-only mode, always false on reload.
 let nowNextTimer = null;
+let jumpOpen = false;
+
 ensureDay(selectedDate);
-render();
 bindEvents();
+render();
 startNowNextTicker();
 
 function bindEvents() {
   els.prevDayBtn.addEventListener("click", () => moveDay(-1));
-  els.nextDayBtn.addEventListener("click", () => moveDay(1));
+  document.getElementById("nextDayBtn").addEventListener("click", () => moveDay(1));
+
+  els.jumpToggleBtn.addEventListener("click", () => {
+    jumpOpen = !jumpOpen;
+    renderJumpPanel();
+  });
 
   els.jumpDate.addEventListener("change", () => {
     if (!els.jumpDate.value) return;
     selectDate(els.jumpDate.value);
+    jumpOpen = false;
+    renderJumpPanel();
   });
 
-  els.executionModeToggle.addEventListener("change", () => {
-    getCurrentDay().executionMode = els.executionModeToggle.checked;
+  els.planDayBtn.addEventListener("click", () => {
+    planMode = true;
+    render();
+  });
+
+  els.editDayBtn.addEventListener("click", () => {
+    planMode = true;
+    render();
+  });
+
+  els.doneBtn.addEventListener("click", () => {
+    planMode = false;
     resetEntryForm();
-    persistAndRender();
+    render();
   });
 
   els.majorEventForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (getCurrentDay().executionMode) return;
+    if (!planMode) return;
+
     const value = els.majorEventInput.value.trim();
     if (!value) return;
 
@@ -74,8 +103,9 @@ function bindEvents() {
     persistAndRender();
   });
 
-  els.majorEventsList.addEventListener("click", (event) => {
-    if (getCurrentDay().executionMode) return;
+  els.majorEventsEditList.addEventListener("click", (event) => {
+    if (!planMode) return;
+
     const target = event.target.closest("button[data-event-index]");
     if (!target) return;
 
@@ -87,9 +117,10 @@ function bindEvents() {
     }
   });
 
-  // Keep anchor fields editable per day and persist instantly on change.
+  // Keep anchors editable and stored only in Plan Mode.
   [els.wakeTimeInput, els.sleepTimeInput, els.wakeNotesInput, els.sleepNotesInput].forEach((input) => {
     input.addEventListener("change", () => {
+      if (!planMode) return;
       const day = getCurrentDay();
       day.anchors.wake.time = els.wakeTimeInput.value || day.anchors.wake.time;
       day.anchors.sleep.time = els.sleepTimeInput.value || day.anchors.sleep.time;
@@ -100,11 +131,13 @@ function bindEvents() {
   });
 
   els.nightOwlToggle.addEventListener("change", () => {
+    if (!planMode) return;
     getCurrentDay().nightOwl = els.nightOwlToggle.checked;
     persistAndRender(false);
   });
 
   els.resetAnchorsBtn.addEventListener("click", () => {
+    if (!planMode) return;
     const day = getCurrentDay();
     day.anchors.wake.time = state.defaults.wakeTime;
     day.anchors.sleep.time = state.defaults.sleepTime;
@@ -115,6 +148,7 @@ function bindEvents() {
 
   els.entryForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!planMode) return;
     saveEntry();
   });
 
@@ -123,6 +157,8 @@ function bindEvents() {
   });
 
   els.entriesList.addEventListener("click", (event) => {
+    if (!planMode) return;
+
     const actionBtn = event.target.closest("button[data-action]");
     if (!actionBtn) return;
 
@@ -130,18 +166,12 @@ function bindEvents() {
     const id = actionBtn.dataset.id;
     if (!id) return;
 
-    if (action === "delete") {
-      deleteEntry(id);
-    }
-
-    if (action === "edit") {
-      startEditEntry(id);
-    }
+    if (action === "delete") deleteEntry(id);
+    if (action === "edit") startEditEntry(id);
   });
 }
 
 function saveEntry() {
-  if (getCurrentDay().executionMode) return;
   const start = els.startInput.value;
   const end = els.endInput.value;
   const title = els.titleInput.value.trim();
@@ -166,7 +196,6 @@ function saveEntry() {
 }
 
 function startEditEntry(id) {
-  if (getCurrentDay().executionMode) return;
   const entry = getCurrentDay().entries.find((item) => item.id === id);
   if (!entry) return;
 
@@ -181,7 +210,6 @@ function startEditEntry(id) {
 }
 
 function deleteEntry(id) {
-  if (getCurrentDay().executionMode) return;
   const day = getCurrentDay();
   day.entries = day.entries.filter((entry) => entry.id !== id);
   if (els.entryId.value === id) resetEntryForm();
@@ -204,11 +232,12 @@ function moveDay(amount) {
 function selectDate(isoDate) {
   selectedDate = isoDate;
   ensureDay(selectedDate);
+  planMode = false;
   resetEntryForm();
   render();
 }
 
-// Defensive parser ensures a valid structure even with malformed storage data.
+// Defensive parser keeps legacy shape and sanitizes malformed local storage.
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -237,7 +266,6 @@ function normalizeState(input) {
         output.days[date] = {
           date,
           nightOwl: Boolean(day.nightOwl),
-          executionMode: Boolean(day.executionMode),
           majorEvents: Array.isArray(day.majorEvents)
             ? day.majorEvents.filter((event) => typeof event === "string").map((event) => event.trim()).filter(Boolean)
             : [],
@@ -282,7 +310,6 @@ function ensureDay(date) {
   state.days[date] = {
     date,
     nightOwl: state.defaults.nightOwlEnabledByDefault,
-    executionMode: false,
     majorEvents: [],
     entries: [],
     anchors: {
@@ -301,11 +328,8 @@ function getCurrentDay() {
 
 function persistAndRender(full = true) {
   saveState();
-  if (full) {
-    render();
-  } else {
-    renderAnchors();
-  }
+  if (full) render();
+  else renderAnchors();
 }
 
 function saveState() {
@@ -315,7 +339,6 @@ function saveState() {
 function render() {
   const date = new Date(`${selectedDate}T12:00:00`);
   const today = getTodayISO();
-  const day = getCurrentDay();
 
   els.currentDateLabel.textContent = date.toLocaleDateString(undefined, {
     weekday: "long",
@@ -323,36 +346,126 @@ function render() {
     month: "long",
     day: "numeric",
   });
-
   els.dayLabel.textContent = selectedDate === today ? "Today" : "Selected Day";
   els.jumpDate.value = selectedDate;
-  els.executionModeToggle.checked = day.executionMode;
 
-  renderMajorEvents();
-  renderAnchors();
+  renderJumpPanel();
+  renderModeControls();
+  renderMajorEventsView();
   renderNowNext();
   renderEntries();
-  applyExecutionModeUI();
+  renderPlanningPanel();
 }
 
-function renderMajorEvents() {
-  const day = getCurrentDay();
-  const readOnly = day.executionMode;
-  const events = getCurrentDay().majorEvents;
+function renderJumpPanel() {
+  els.jumpPanel.classList.toggle("hidden", !jumpOpen);
+  els.jumpToggleBtn.setAttribute("aria-expanded", String(jumpOpen));
+}
 
-  if (!events.length) {
-    els.majorEventsList.innerHTML = `<li class="empty">No major events yet.</li>`;
+function renderModeControls() {
+  const day = getCurrentDay();
+  const unplanned = isUnplannedDay(day);
+
+  els.editDayBtn.classList.toggle("hidden", planMode || unplanned);
+  els.doneBtn.classList.toggle("hidden", !planMode);
+  els.emptyState.classList.toggle("hidden", planMode || !unplanned);
+}
+
+function renderMajorEventsView() {
+  const events = getCurrentDay().majorEvents;
+  const showCompact = !planMode && events.length > 0;
+
+  els.majorEventsView.classList.toggle("hidden", !showCompact);
+  if (!showCompact) return;
+
+  els.majorEventsViewList.innerHTML = events
+    .map((event) => `<li class="major-item"><span>${escapeHTML(event)}</span></li>`)
+    .join("");
+}
+
+function renderNowNext() {
+  const showNowNext = selectedDate === getTodayISO();
+  els.nowNextStrip.classList.toggle("hidden", !showNowNext);
+  if (!showNowNext) return;
+
+  const entries = getCurrentDay().entries;
+  const nowMins = getNowMinutes();
+
+  const current = entries.find((entry) => isActiveEntryNow(entry, nowMins));
+  const next = entries
+    .filter((entry) => toMinutes(entry.start) > nowMins)
+    .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
+
+  els.nowLine.textContent = current ? `Now: ${formatEntryLabel(current)}` : "Now: No active block";
+  els.nextLine.textContent = next ? `Next: ${formatEntryLabel(next)}` : "Next: Nothing scheduled";
+}
+
+function renderEntries() {
+  const day = getCurrentDay();
+  const entries = day.entries;
+  const isToday = selectedDate === getTodayISO();
+  const nowMins = getNowMinutes();
+
+  if (!entries.length) {
+    els.entriesList.innerHTML = isUnplannedDay(day)
+      ? ""
+      : `<li class="entry-card"><p class="entry-notes">No blocks scheduled.</p></li>`;
     return;
   }
 
-  els.majorEventsList.innerHTML = events
+  els.entriesList.innerHTML = entries
+    .map((entry) => {
+      const overnight = toMinutes(entry.end) < toMinutes(entry.start);
+      const active = isToday && isActiveEntryNow(entry, nowMins);
+      const actions = planMode
+        ? `<div class="entry-actions-inline">
+            <button class="btn ghost" type="button" data-action="edit" data-id="${entry.id}">Edit</button>
+            <button class="btn danger" type="button" data-action="delete" data-id="${entry.id}">Delete</button>
+          </div>`
+        : "";
+
+      return `
+        <li class="entry-card ${active ? "active" : ""}">
+          <div class="entry-row">
+            <div class="entry-main">
+              <span class="entry-time">${entry.start}-${entry.end} ${overnight ? `<span class="small">(+1 day)</span>` : ""}</span>
+              <strong class="entry-title">${escapeHTML(entry.title)}</strong>
+            </div>
+            ${actions}
+          </div>
+          ${entry.notes ? `<p class="entry-notes">${escapeHTML(entry.notes)}</p>` : ""}
+        </li>
+      `;
+    })
+    .join("");
+}
+
+function renderPlanningPanel() {
+  const day = getCurrentDay();
+  els.planningPanel.classList.toggle("hidden", !planMode);
+
+  if (!planMode) return;
+
+  renderMajorEventsEditor();
+  renderAnchors();
+}
+
+function renderMajorEventsEditor() {
+  const events = getCurrentDay().majorEvents;
+
+  if (!events.length) {
+    els.majorEventsEditList.innerHTML = "";
+    return;
+  }
+
+  els.majorEventsEditList.innerHTML = events
     .map(
       (event, index) => `
-      <li class="chip">
-        <span>${escapeHTML(event)}</span>
-        ${readOnly ? "" : `<button class="btn danger" type="button" data-event-index="${index}" aria-label="Remove event">x</button>`}
-      </li>
-    `,
+        <li class="major-item">
+          <span>${escapeHTML(event)}</span>
+          <button class="btn danger" type="button" data-event-index="${index}" aria-label="Remove event">Delete</button>
+        </li>
+      `,
     )
     .join("");
 }
@@ -375,75 +488,6 @@ function renderAnchors() {
     : "Recommended sleep window: 20:00-02:00 when Night Owl is off.";
 }
 
-function renderEntries() {
-  const day = getCurrentDay();
-  const entries = day.entries;
-  const isToday = selectedDate === getTodayISO();
-  const nowMins = getNowMinutes();
-
-  if (!entries.length) {
-    els.entriesList.innerHTML = `<li class="empty">No blocks scheduled.</li>`;
-    return;
-  }
-
-  els.entriesList.innerHTML = entries
-    .map((entry) => {
-      const overnight = toMinutes(entry.end) < toMinutes(entry.start);
-      const active = isToday && isActiveEntryNow(entry, nowMins);
-      return `
-        <li class="entry-card ${active ? "active" : ""}">
-          <div class="entry-row">
-            <div class="entry-main">
-              <span class="entry-time">${entry.start}-${entry.end} ${overnight ? `<span class="small">(+1 day)</span>` : ""}</span>
-              <strong class="entry-title">${escapeHTML(entry.title)}</strong>
-            </div>
-            ${
-              day.executionMode
-                ? ""
-                : `<div class="entry-actions-inline">
-              <button class="btn ghost" type="button" data-action="edit" data-id="${entry.id}">Edit</button>
-              <button class="btn danger" type="button" data-action="delete" data-id="${entry.id}">Delete</button>
-            </div>`
-            }
-          </div>
-          ${entry.notes ? `<p class="entry-notes">${escapeHTML(entry.notes)}</p>` : ""}
-        </li>
-      `;
-    })
-    .join("");
-}
-
-function renderNowNext() {
-  if (selectedDate !== getTodayISO()) {
-    els.nowNextStrip.classList.add("muted");
-    els.nowLine.textContent = "Now/Next only shows for Today";
-    els.nextLine.textContent = "";
-    return;
-  }
-
-  els.nowNextStrip.classList.remove("muted");
-  const entries = getCurrentDay().entries;
-  const nowMins = getNowMinutes();
-
-  const current = entries.find((entry) => isActiveEntryNow(entry, nowMins));
-  const next = entries
-    .filter((entry) => toMinutes(entry.start) > nowMins)
-    .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
-
-  els.nowLine.textContent = current
-    ? `Now: ${formatEntryLabel(current)}`
-    : "Now: No active block";
-  els.nextLine.textContent = next
-    ? `Next: ${formatEntryLabel(next)}`
-    : "Next: Nothing scheduled";
-}
-
-function applyExecutionModeUI() {
-  const isExecutionMode = getCurrentDay().executionMode;
-  els.entryForm.classList.toggle("hidden", isExecutionMode);
-  els.majorEventForm.classList.toggle("hidden", isExecutionMode);
-}
-
 function startNowNextTicker() {
   if (nowNextTimer) clearInterval(nowNextTimer);
   nowNextTimer = setInterval(() => {
@@ -451,6 +495,10 @@ function startNowNextTicker() {
     renderNowNext();
     renderEntries();
   }, 30000);
+}
+
+function isUnplannedDay(day) {
+  return day.majorEvents.length === 0 && day.entries.length === 0;
 }
 
 function getTodayISO() {
