@@ -18,7 +18,8 @@
       </header>
 
       <section id="majorEventsView" class="major-events-view hidden">
-        <ul id="majorEventsViewList" class="compact-list"></ul>
+        <h3>Major Events</h3>
+        <ul id="majorEventsViewList" class="major-chips"></ul>
       </section>
 
       <section id="scheduleCard" class="card">
@@ -40,7 +41,10 @@
           <button id="planDayBtn" class="btn" type="button">Plan this day</button>
         </div>
 
-        <ul id="entriesList" class="entry-list"></ul>
+        <div id="timelineWrap" class="timeline-wrap hidden">
+          <div id="timeGutter" class="time-gutter"></div>
+          <div id="timelineCanvas" class="timeline-canvas"></div>
+        </div>
       </section>
 
       <section id="planningPanel" class="planning-panel hidden">
@@ -64,12 +68,8 @@
               <input id="wakeNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
             </label>
             <label>
-              Sleep start
-              <input id="sleepStartInput" type="time" />
-            </label>
-            <label>
-              Sleep end
-              <input id="sleepEndInput" type="time" />
+              Sleep time
+              <input id="sleepTimeInput" type="time" />
               <input id="sleepNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
             </label>
           </div>
@@ -101,6 +101,34 @@
             </div>
           </form>
         </section>
+      </section>
+
+      <section id="editSheet" class="edit-sheet hidden" aria-hidden="true">
+        <form id="editEntryForm" class="edit-sheet-card" autocomplete="off">
+          <h3>Edit Block</h3>
+          <input id="editEntryId" type="hidden" />
+          <label>
+            Start
+            <input id="editStartInput" type="time" required />
+          </label>
+          <label>
+            End
+            <input id="editEndInput" type="time" required />
+          </label>
+          <label>
+            Title
+            <input id="editTitleInput" type="text" maxlength="120" required />
+          </label>
+          <label>
+            Notes
+            <textarea id="editNotesInput" rows="3" maxlength="500" placeholder="Optional"></textarea>
+          </label>
+          <div class="edit-sheet-actions">
+            <button id="editSaveBtn" class="btn" type="submit">Save</button>
+            <button id="editDeleteBtn" class="btn danger" type="button">Delete</button>
+            <button id="editCancelBtn" class="btn ghost" type="button">Cancel</button>
+          </div>
+        </form>
       </section>
     </main>
 

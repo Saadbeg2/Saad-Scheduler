@@ -25,9 +25,11 @@ body {
 
 .app {
   width: min(860px, 100% - 1.2rem);
+  max-width: 100%;
   margin: 1rem auto 1.5rem;
   display: grid;
   gap: 0.7rem;
+  overflow-x: hidden;
 }
 
 .day-header {
@@ -96,6 +98,8 @@ input,
 textarea,
 button {
   font: inherit;
+  width: 100%;
+  max-width: 100%;
 }
 
 input,
@@ -121,6 +125,8 @@ label {
   border-radius: var(--radius);
   background: var(--panel);
   padding: 0.75rem;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .section-head {
@@ -149,17 +155,43 @@ label {
   border-radius: var(--radius);
   background: #131316;
   padding: 0.55rem;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.major-events-view h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.major-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .major-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.4rem;
   border: 1px solid var(--border);
   background: var(--panel-2);
-  border-radius: 10px;
-  padding: 0.4rem 0.55rem;
+  border-radius: 999px;
+  padding: 0.34rem 0.6rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.major-item span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .now-next-strip {
@@ -198,6 +230,15 @@ label {
 .section-head > *,
 .entry-row > * {
   min-width: 0;
+}
+
+.textCol {
+  min-width: 0;
+}
+
+.textCol * {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .now-next-strip p {
@@ -276,6 +317,83 @@ label {
   gap: 0.4rem;
 }
 
+.timeline-wrap {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.time-gutter {
+  position: relative;
+}
+
+.hour-label {
+  position: absolute;
+  right: 0.25rem;
+  transform: translateY(-50%);
+  font-size: 0.73rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.timeline-canvas {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #151519;
+  overflow: hidden;
+}
+
+.hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid #2a2a32;
+}
+
+.timeline-item {
+  position: absolute;
+  left: 0.35rem;
+  right: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #4a4a58;
+  background: #272734;
+  padding: 0.34rem 0.45rem;
+  display: grid;
+  gap: 0.12rem;
+  overflow: hidden;
+}
+
+.timeline-item.editable {
+  cursor: pointer;
+}
+
+.timeline-item .textCol {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.timeline-item .title {
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.timeline-item .meta {
+  font-size: 0.75rem;
+  color: #cbcbda;
+}
+
+.timeline-item.marker {
+  min-height: 24px;
+  background: #1c1c23;
+  border-style: dashed;
+  border-color: #555568;
+  align-content: center;
+}
+
 .planning-panel {
   display: grid;
   gap: 0.7rem;
@@ -308,6 +426,50 @@ label {
   margin-bottom: 0.65rem;
 }
 
+.day-header .btn,
+.schedule-actions .btn,
+.entry-actions .btn,
+.entry-actions-inline .btn,
+.inline-form .btn,
+.major-item .btn {
+  width: auto;
+}
+
+.edit-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  padding: 0.6rem;
+  max-width: 100%;
+  overflow-x: hidden;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+
+.edit-sheet-card {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  background: var(--panel);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.45rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.edit-sheet-card h3 {
+  margin: 0 0 0.1rem;
+}
+
+.edit-sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.45rem;
+}
+
 @media (max-width: 660px) {
   .schedule-actions {
     display: grid;
@@ -316,7 +478,8 @@ label {
 
   .sleep-wake-grid,
   .entry-form,
-  .inline-form {
+  .inline-form,
+  .edit-sheet-actions {
     grid-template-columns: 1fr;
   }
 
