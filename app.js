@@ -9,91 +9,130 @@ const BASE_STATE = {
   days: {},
 };
 
-const els = {
-  dayLabel: document.getElementById("dayLabel"),
-  currentDateLabel: document.getElementById("currentDateLabel"),
-  prevDayBtn: document.getElementById("prevDayBtn"),
-  jumpToggleBtn: document.getElementById("jumpToggleBtn"),
-  editDayBtn: document.getElementById("editDayBtn"),
-  doneBtn: document.getElementById("doneBtn"),
-  jumpPanel: document.getElementById("jumpPanel"),
-  jumpDate: document.getElementById("jumpDate"),
-  majorEventsView: document.getElementById("majorEventsView"),
-  majorEventsViewList: document.getElementById("majorEventsViewList"),
-  scheduleCard: document.getElementById("scheduleCard"),
-  nowNextStrip: document.getElementById("nowNextStrip"),
-  nowLine: document.getElementById("nowLine"),
-  nextLine: document.getElementById("nextLine"),
-  emptyState: document.getElementById("emptyState"),
-  planDayBtn: document.getElementById("planDayBtn"),
-  entriesList: document.getElementById("entriesList"),
-  planningPanel: document.getElementById("planningPanel"),
-  majorEventForm: document.getElementById("majorEventForm"),
-  majorEventInput: document.getElementById("majorEventInput"),
-  majorEventsEditList: document.getElementById("majorEventsEditList"),
-  nightOwlToggle: document.getElementById("nightOwlToggle"),
-  wakeTimeInput: document.getElementById("wakeTimeInput"),
-  sleepTimeInput: document.getElementById("sleepTimeInput"),
-  wakeNotesInput: document.getElementById("wakeNotesInput"),
-  sleepNotesInput: document.getElementById("sleepNotesInput"),
-  sleepHint: document.getElementById("sleepHint"),
-  resetAnchorsBtn: document.getElementById("resetAnchorsBtn"),
-  entryForm: document.getElementById("entryForm"),
-  entryId: document.getElementById("entryId"),
-  startInput: document.getElementById("startInput"),
-  endInput: document.getElementById("endInput"),
-  titleInput: document.getElementById("titleInput"),
-  notesInput: document.getElementById("notesInput"),
-  saveEntryBtn: document.getElementById("saveEntryBtn"),
-  cancelEditBtn: document.getElementById("cancelEditBtn"),
-};
-
-let state = loadState();
-let selectedDate = getTodayISO();
+let els = {};
+let state = structuredClone(BASE_STATE);
+let selectedDate = "";
 let planMode = false; // Session-only mode, always false on reload.
 let nowNextTimer = null;
 let jumpOpen = false;
+const missingFeatureLog = new Set();
 
-ensureDay(selectedDate);
-bindEvents();
-render();
-startNowNextTicker();
+document.addEventListener("DOMContentLoaded", () => {
+  init();
+});
+
+function init() {
+  cacheElements();
+  state = loadState();
+  selectedDate = getTodayISO();
+  planMode = false;
+  jumpOpen = false;
+
+  ensureDay(selectedDate);
+  bindEvents();
+  render();
+  startNowNextTicker();
+}
+
+function cacheElements() {
+  els = {
+    dayLabel: document.getElementById("dayLabel"),
+    dateLabel: document.getElementById("dateLabel"),
+    prevDayBtn: document.getElementById("prevDayBtn"),
+    nextDayBtn: document.getElementById("nextDayBtn"),
+    jumpToggleBtn: document.getElementById("jumpToggleBtn"),
+    editDayBtn: document.getElementById("editDayBtn"),
+    doneBtn: document.getElementById("doneBtn"),
+    jumpPanel: document.getElementById("jumpPanel"),
+    jumpDate: document.getElementById("jumpDate"),
+    majorEventsView: document.getElementById("majorEventsView"),
+    majorEventsViewList: document.getElementById("majorEventsViewList"),
+    scheduleCard: document.getElementById("scheduleCard"),
+    nowNextStrip: document.getElementById("nowNextStrip"),
+    nowLine: document.getElementById("nowLine"),
+    nextLine: document.getElementById("nextLine"),
+    emptyState: document.getElementById("emptyState"),
+    planDayBtn: document.getElementById("planDayBtn"),
+    entriesList: document.getElementById("entriesList"),
+    planningPanel: document.getElementById("planningPanel"),
+    majorEventForm: document.getElementById("majorEventForm"),
+    majorEventInput: document.getElementById("majorEventInput"),
+    majorEventsEditList: document.getElementById("majorEventsEditList"),
+    nightOwlToggle: document.getElementById("nightOwlToggle"),
+    wakeTimeInput: document.getElementById("wakeTimeInput"),
+    sleepTimeInput: document.getElementById("sleepTimeInput"),
+    wakeNotesInput: document.getElementById("wakeNotesInput"),
+    sleepNotesInput: document.getElementById("sleepNotesInput"),
+    sleepHint: document.getElementById("sleepHint"),
+    resetAnchorsBtn: document.getElementById("resetAnchorsBtn"),
+    entryForm: document.getElementById("entryForm"),
+    entryId: document.getElementById("entryId"),
+    startInput: document.getElementById("startInput"),
+    endInput: document.getElementById("endInput"),
+    titleInput: document.getElementById("titleInput"),
+    notesInput: document.getElementById("notesInput"),
+    saveEntryBtn: document.getElementById("saveEntryBtn"),
+    cancelEditBtn: document.getElementById("cancelEditBtn"),
+  };
+}
+
+function on(el, evt, fn) {
+  if (!el) return;
+  el.addEventListener(evt, fn);
+}
+
+function logMissingElement(id, feature) {
+  const key = `${id}:${feature}`;
+  if (missingFeatureLog.has(key)) return;
+  missingFeatureLog.add(key);
+  console.error(`[Daily Timetable] Missing required element #${id} for ${feature}.`);
+}
 
 function bindEvents() {
-  els.prevDayBtn.addEventListener("click", () => moveDay(-1));
-  document.getElementById("nextDayBtn").addEventListener("click", () => moveDay(1));
+  if (!els.prevDayBtn) logMissingElement("prevDayBtn", "day navigation");
+  if (!els.nextDayBtn) logMissingElement("nextDayBtn", "day navigation");
+  if (!els.jumpToggleBtn) logMissingElement("jumpToggleBtn", "jump panel toggle");
+  if (!els.editDayBtn) logMissingElement("editDayBtn", "plan mode entry");
+  if (!els.doneBtn) logMissingElement("doneBtn", "plan mode exit");
 
-  els.jumpToggleBtn.addEventListener("click", () => {
+  on(els.prevDayBtn, "click", () => moveDay(-1));
+  on(els.nextDayBtn, "click", () => moveDay(1));
+
+  on(els.jumpToggleBtn, "click", () => {
     jumpOpen = !jumpOpen;
     renderJumpPanel();
   });
 
-  els.jumpDate.addEventListener("change", () => {
+  on(els.jumpDate, "change", () => {
     if (!els.jumpDate.value) return;
     selectDate(els.jumpDate.value);
     jumpOpen = false;
     renderJumpPanel();
   });
 
-  els.planDayBtn.addEventListener("click", () => {
+  on(els.planDayBtn, "click", () => {
     planMode = true;
     render();
   });
 
-  els.editDayBtn.addEventListener("click", () => {
+  on(els.editDayBtn, "click", () => {
     planMode = true;
     render();
   });
 
-  els.doneBtn.addEventListener("click", () => {
+  on(els.doneBtn, "click", () => {
     planMode = false;
     resetEntryForm();
     render();
   });
 
-  els.majorEventForm.addEventListener("submit", (event) => {
+  on(els.majorEventForm, "submit", (event) => {
     event.preventDefault();
     if (!planMode) return;
+    if (!els.majorEventInput) {
+      logMissingElement("majorEventInput", "major events editor");
+      return;
+    }
 
     const value = els.majorEventInput.value.trim();
     if (!value) return;
@@ -103,7 +142,7 @@ function bindEvents() {
     persistAndRender();
   });
 
-  els.majorEventsEditList.addEventListener("click", (event) => {
+  on(els.majorEventsEditList, "click", (event) => {
     if (!planMode) return;
 
     const target = event.target.closest("button[data-event-index]");
@@ -119,24 +158,24 @@ function bindEvents() {
 
   // Keep anchors editable and stored only in Plan Mode.
   [els.wakeTimeInput, els.sleepTimeInput, els.wakeNotesInput, els.sleepNotesInput].forEach((input) => {
-    input.addEventListener("change", () => {
+    on(input, "change", () => {
       if (!planMode) return;
       const day = getCurrentDay();
-      day.anchors.wake.time = els.wakeTimeInput.value || day.anchors.wake.time;
-      day.anchors.sleep.time = els.sleepTimeInput.value || day.anchors.sleep.time;
-      day.anchors.wake.notes = (els.wakeNotesInput.value || "").trim();
-      day.anchors.sleep.notes = (els.sleepNotesInput.value || "").trim();
+      day.anchors.wake.time = els.wakeTimeInput?.value || day.anchors.wake.time;
+      day.anchors.sleep.time = els.sleepTimeInput?.value || day.anchors.sleep.time;
+      day.anchors.wake.notes = (els.wakeNotesInput?.value || "").trim();
+      day.anchors.sleep.notes = (els.sleepNotesInput?.value || "").trim();
       persistAndRender(false);
     });
   });
 
-  els.nightOwlToggle.addEventListener("change", () => {
+  on(els.nightOwlToggle, "change", () => {
     if (!planMode) return;
     getCurrentDay().nightOwl = els.nightOwlToggle.checked;
     persistAndRender(false);
   });
 
-  els.resetAnchorsBtn.addEventListener("click", () => {
+  on(els.resetAnchorsBtn, "click", () => {
     if (!planMode) return;
     const day = getCurrentDay();
     day.anchors.wake.time = state.defaults.wakeTime;
@@ -146,17 +185,17 @@ function bindEvents() {
     persistAndRender(false);
   });
 
-  els.entryForm.addEventListener("submit", (event) => {
+  on(els.entryForm, "submit", (event) => {
     event.preventDefault();
     if (!planMode) return;
     saveEntry();
   });
 
-  els.cancelEditBtn.addEventListener("click", () => {
+  on(els.cancelEditBtn, "click", () => {
     resetEntryForm();
   });
 
-  els.entriesList.addEventListener("click", (event) => {
+  on(els.entriesList, "click", (event) => {
     if (!planMode) return;
 
     const actionBtn = event.target.closest("button[data-action]");
@@ -172,6 +211,11 @@ function bindEvents() {
 }
 
 function saveEntry() {
+  if (!els.startInput || !els.endInput || !els.titleInput || !els.notesInput || !els.entryId) {
+    logMissingElement("entryForm fields", "schedule editor");
+    return;
+  }
+
   const start = els.startInput.value;
   const end = els.endInput.value;
   const title = els.titleInput.value.trim();
@@ -196,6 +240,11 @@ function saveEntry() {
 }
 
 function startEditEntry(id) {
+  if (!els.entryId || !els.startInput || !els.endInput || !els.titleInput || !els.notesInput) {
+    logMissingElement("entryForm fields", "schedule editor");
+    return;
+  }
+
   const entry = getCurrentDay().entries.find((item) => item.id === id);
   if (!entry) return;
 
@@ -217,10 +266,10 @@ function deleteEntry(id) {
 }
 
 function resetEntryForm() {
-  els.entryForm.reset();
-  els.entryId.value = "";
-  els.saveEntryBtn.textContent = "Add Block";
-  els.cancelEditBtn.classList.add("hidden");
+  if (els.entryForm) els.entryForm.reset();
+  if (els.entryId) els.entryId.value = "";
+  if (els.saveEntryBtn) els.saveEntryBtn.textContent = "Add Block";
+  if (els.cancelEditBtn) els.cancelEditBtn.classList.add("hidden");
 }
 
 function moveDay(amount) {
@@ -337,18 +386,7 @@ function saveState() {
 }
 
 function render() {
-  const date = new Date(`${selectedDate}T12:00:00`);
-  const today = getTodayISO();
-
-  els.currentDateLabel.textContent = date.toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  els.dayLabel.textContent = selectedDate === today ? "Today" : "Selected Day";
-  els.jumpDate.value = selectedDate;
-
+  renderHeader();
   renderJumpPanel();
   renderModeControls();
   renderMajorEventsView();
@@ -357,12 +395,41 @@ function render() {
   renderPlanningPanel();
 }
 
+function renderHeader() {
+  const date = new Date(`${selectedDate}T12:00:00`);
+  const today = getTodayISO();
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+
+  if (els.dateLabel) {
+    els.dateLabel.textContent = formatted;
+  } else {
+    logMissingElement("dateLabel", "date display");
+  }
+
+  if (els.dayLabel) {
+    const showToday = selectedDate === today;
+    els.dayLabel.textContent = showToday ? "Today" : "";
+    els.dayLabel.classList.toggle("hidden", !showToday);
+  } else {
+    logMissingElement("dayLabel", "today indicator");
+  }
+
+  if (els.jumpDate) els.jumpDate.value = selectedDate;
+}
+
 function renderJumpPanel() {
+  if (!els.jumpPanel || !els.jumpToggleBtn) return;
   els.jumpPanel.classList.toggle("hidden", !jumpOpen);
   els.jumpToggleBtn.setAttribute("aria-expanded", String(jumpOpen));
 }
 
 function renderModeControls() {
+  if (!els.editDayBtn || !els.doneBtn || !els.emptyState) return;
   const day = getCurrentDay();
   const unplanned = isUnplannedDay(day);
 
@@ -372,6 +439,7 @@ function renderModeControls() {
 }
 
 function renderMajorEventsView() {
+  if (!els.majorEventsView || !els.majorEventsViewList) return;
   const events = getCurrentDay().majorEvents;
   const showCompact = !planMode && events.length > 0;
 
@@ -384,6 +452,7 @@ function renderMajorEventsView() {
 }
 
 function renderNowNext() {
+  if (!els.nowNextStrip || !els.nowLine || !els.nextLine) return;
   const showNowNext = selectedDate === getTodayISO();
   els.nowNextStrip.classList.toggle("hidden", !showNowNext);
   if (!showNowNext) return;
@@ -401,6 +470,7 @@ function renderNowNext() {
 }
 
 function renderEntries() {
+  if (!els.entriesList) return;
   const day = getCurrentDay();
   const entries = day.entries;
   const isToday = selectedDate === getTodayISO();
@@ -441,7 +511,7 @@ function renderEntries() {
 }
 
 function renderPlanningPanel() {
-  const day = getCurrentDay();
+  if (!els.planningPanel) return;
   els.planningPanel.classList.toggle("hidden", !planMode);
 
   if (!planMode) return;
@@ -451,6 +521,7 @@ function renderPlanningPanel() {
 }
 
 function renderMajorEventsEditor() {
+  if (!els.majorEventsEditList) return;
   const events = getCurrentDay().majorEvents;
 
   if (!events.length) {
@@ -471,14 +542,15 @@ function renderMajorEventsEditor() {
 }
 
 function renderAnchors() {
+  if (!els.sleepHint) return;
   const day = getCurrentDay();
   const sleep = day.anchors.sleep.time;
 
-  els.nightOwlToggle.checked = day.nightOwl;
-  els.wakeTimeInput.value = day.anchors.wake.time;
-  els.sleepTimeInput.value = sleep;
-  els.wakeNotesInput.value = day.anchors.wake.notes;
-  els.sleepNotesInput.value = day.anchors.sleep.notes;
+  if (els.nightOwlToggle) els.nightOwlToggle.checked = day.nightOwl;
+  if (els.wakeTimeInput) els.wakeTimeInput.value = day.anchors.wake.time;
+  if (els.sleepTimeInput) els.sleepTimeInput.value = sleep;
+  if (els.wakeNotesInput) els.wakeNotesInput.value = day.anchors.wake.notes;
+  if (els.sleepNotesInput) els.sleepNotesInput.value = day.anchors.sleep.notes;
 
   const outOfNormal = !isSleepInNormalRange(sleep);
   const showWarning = !day.nightOwl && outOfNormal;
