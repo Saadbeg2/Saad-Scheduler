@@ -14,17 +14,8 @@
           <p class="day-label" id="dayLabel">Today</p>
           <h1 id="dateLabel">Loading...</h1>
         </div>
-        <div class="header-actions">
-          <button id="jumpToggleBtn" class="btn ghost" type="button" aria-expanded="false">Jump</button>
-          <button id="editDayBtn" class="btn" type="button">Edit Day</button>
-          <button id="doneBtn" class="btn hidden" type="button">Done</button>
-        </div>
+        <button id="nextDayBtn" class="btn ghost" type="button" aria-label="Next day">Next</button>
       </header>
-
-      <section id="jumpPanel" class="jump-panel hidden">
-        <label for="jumpDate">Jump to date</label>
-        <input id="jumpDate" type="date" />
-      </section>
 
       <section id="majorEventsView" class="major-events-view hidden">
         <ul id="majorEventsViewList" class="compact-list"></ul>
@@ -33,7 +24,27 @@
       <section id="scheduleCard" class="card">
         <div class="section-head">
           <h2>Schedule</h2>
+          <div class="schedule-actions">
+            <button id="editDayBtn" class="btn" type="button">Edit Day</button>
+            <button id="doneBtn" class="btn hidden" type="button">Done</button>
+          </div>
         </div>
+
+        <section id="sleepWakeRow" class="sleep-wake-row">
+          <h3>Sleep &amp; Wake</h3>
+          <div class="sleep-wake-grid">
+            <label>
+              Sleep time
+              <input id="sleepTimeInput" type="time" />
+              <input id="sleepNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
+            </label>
+            <label>
+              Wake time
+              <input id="wakeTimeInput" type="time" />
+              <input id="wakeNotesInput" class="light-note-input" type="text" maxlength="140" placeholder="Optional note" />
+            </label>
+          </div>
+        </section>
 
         <div id="nowNextStrip" class="now-next-strip hidden">
           <p id="nowLine">Now: No active block</p>
@@ -58,41 +69,6 @@
             <button class="btn" type="submit">Add</button>
           </form>
           <ul id="majorEventsEditList" class="compact-list"></ul>
-        </section>
-
-        <section class="card">
-          <div class="section-head">
-            <h3>Anchors</h3>
-            <button id="resetAnchorsBtn" class="btn ghost" type="button">Use Defaults</button>
-          </div>
-
-          <div class="switch-row">
-            <span>Night Owl Mode</span>
-            <label class="switch">
-              <input id="nightOwlToggle" type="checkbox" />
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <div class="anchor-grid">
-            <label>
-              Wake time
-              <input id="wakeTimeInput" type="time" />
-            </label>
-            <label>
-              Sleep time
-              <input id="sleepTimeInput" type="time" />
-            </label>
-            <label>
-              Wake notes
-              <input id="wakeNotesInput" type="text" maxlength="140" placeholder="Optional" />
-            </label>
-            <label>
-              Sleep notes
-              <input id="sleepNotesInput" type="text" maxlength="140" placeholder="Optional" />
-            </label>
-          </div>
-          <p id="sleepHint" class="hint">Recommended sleep window: 20:00-02:00 when Night Owl is off.</p>
         </section>
 
         <section class="card">

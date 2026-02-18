@@ -14,7 +14,6 @@ let state = structuredClone(BASE_STATE);
 let selectedDate = "";
 let planMode = false; // Session-only mode, always false on reload.
 let nowNextTimer = null;
-let jumpOpen = false;
 const missingFeatureLog = new Set();
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -26,7 +25,6 @@ function init() {
   state = loadState();
   selectedDate = getTodayISO();
   planMode = false;
-  jumpOpen = false;
 
   ensureDay(selectedDate);
   bindEvents();
@@ -40,14 +38,12 @@ function cacheElements() {
     dateLabel: document.getElementById("dateLabel"),
     prevDayBtn: document.getElementById("prevDayBtn"),
     nextDayBtn: document.getElementById("nextDayBtn"),
-    jumpToggleBtn: document.getElementById("jumpToggleBtn"),
     editDayBtn: document.getElementById("editDayBtn"),
     doneBtn: document.getElementById("doneBtn"),
-    jumpPanel: document.getElementById("jumpPanel"),
-    jumpDate: document.getElementById("jumpDate"),
     majorEventsView: document.getElementById("majorEventsView"),
     majorEventsViewList: document.getElementById("majorEventsViewList"),
     scheduleCard: document.getElementById("scheduleCard"),
+    sleepWakeRow: document.getElementById("sleepWakeRow"),
     nowNextStrip: document.getElementById("nowNextStrip"),
     nowLine: document.getElementById("nowLine"),
     nextLine: document.getElementById("nextLine"),
@@ -58,13 +54,10 @@ function cacheElements() {
     majorEventForm: document.getElementById("majorEventForm"),
     majorEventInput: document.getElementById("majorEventInput"),
     majorEventsEditList: document.getElementById("majorEventsEditList"),
-    nightOwlToggle: document.getElementById("nightOwlToggle"),
     wakeTimeInput: document.getElementById("wakeTimeInput"),
     sleepTimeInput: document.getElementById("sleepTimeInput"),
     wakeNotesInput: document.getElementById("wakeNotesInput"),
     sleepNotesInput: document.getElementById("sleepNotesInput"),
-    sleepHint: document.getElementById("sleepHint"),
-    resetAnchorsBtn: document.getElementById("resetAnchorsBtn"),
     entryForm: document.getElementById("entryForm"),
     entryId: document.getElementById("entryId"),
     startInput: document.getElementById("startInput"),
@@ -91,23 +84,21 @@ function logMissingElement(id, feature) {
 function bindEvents() {
   if (!els.prevDayBtn) logMissingElement("prevDayBtn", "day navigation");
   if (!els.nextDayBtn) logMissingElement("nextDayBtn", "day navigation");
-  if (!els.jumpToggleBtn) logMissingElement("jumpToggleBtn", "jump panel toggle");
   if (!els.editDayBtn) logMissingElement("editDayBtn", "plan mode entry");
   if (!els.doneBtn) logMissingElement("doneBtn", "plan mode exit");
 
-  on(els.prevDayBtn, "click", () => moveDay(-1));
-  on(els.nextDayBtn, "click", () => moveDay(1));
-
-  on(els.jumpToggleBtn, "click", () => {
-    jumpOpen = !jumpOpen;
-    renderJumpPanel();
+  on(els.prevDayBtn, "click", () => {
+    selectedDate = addDays(selectedDate, -1);
+    planMode = false;
+    ensureDay(selectedDate);
+    render();
   });
 
-  on(els.jumpDate, "change", () => {
-    if (!els.jumpDate.value) return;
-    selectDate(els.jumpDate.value);
-    jumpOpen = false;
-    renderJumpPanel();
+  on(els.nextDayBtn, "click", () => {
+    selectedDate = addDays(selectedDate, +1);
+    planMode = false;
+    ensureDay(selectedDate);
+    render();
   });
 
   on(els.planDayBtn, "click", () => {
@@ -156,10 +147,9 @@ function bindEvents() {
     }
   });
 
-  // Keep anchors editable and stored only in Plan Mode.
+  // Keep sleep/wake fields persisted per day from the compact row.
   [els.wakeTimeInput, els.sleepTimeInput, els.wakeNotesInput, els.sleepNotesInput].forEach((input) => {
     on(input, "change", () => {
-      if (!planMode) return;
       const day = getCurrentDay();
       day.anchors.wake.time = els.wakeTimeInput?.value || day.anchors.wake.time;
       day.anchors.sleep.time = els.sleepTimeInput?.value || day.anchors.sleep.time;
@@ -167,22 +157,6 @@ function bindEvents() {
       day.anchors.sleep.notes = (els.sleepNotesInput?.value || "").trim();
       persistAndRender(false);
     });
-  });
-
-  on(els.nightOwlToggle, "change", () => {
-    if (!planMode) return;
-    getCurrentDay().nightOwl = els.nightOwlToggle.checked;
-    persistAndRender(false);
-  });
-
-  on(els.resetAnchorsBtn, "click", () => {
-    if (!planMode) return;
-    const day = getCurrentDay();
-    day.anchors.wake.time = state.defaults.wakeTime;
-    day.anchors.sleep.time = state.defaults.sleepTime;
-    day.anchors.wake.notes = "";
-    day.anchors.sleep.notes = "";
-    persistAndRender(false);
   });
 
   on(els.entryForm, "submit", (event) => {
@@ -270,12 +244,6 @@ function resetEntryForm() {
   if (els.entryId) els.entryId.value = "";
   if (els.saveEntryBtn) els.saveEntryBtn.textContent = "Add Block";
   if (els.cancelEditBtn) els.cancelEditBtn.classList.add("hidden");
-}
-
-function moveDay(amount) {
-  const date = new Date(`${selectedDate}T12:00:00`);
-  date.setDate(date.getDate() + amount);
-  selectDate(toISO(date));
 }
 
 function selectDate(isoDate) {
@@ -387,7 +355,6 @@ function saveState() {
 
 function render() {
   renderHeader();
-  renderJumpPanel();
   renderModeControls();
   renderMajorEventsView();
   renderNowNext();
@@ -418,14 +385,6 @@ function renderHeader() {
   } else {
     logMissingElement("dayLabel", "today indicator");
   }
-
-  if (els.jumpDate) els.jumpDate.value = selectedDate;
-}
-
-function renderJumpPanel() {
-  if (!els.jumpPanel || !els.jumpToggleBtn) return;
-  els.jumpPanel.classList.toggle("hidden", !jumpOpen);
-  els.jumpToggleBtn.setAttribute("aria-expanded", String(jumpOpen));
 }
 
 function renderModeControls() {
@@ -542,22 +501,11 @@ function renderMajorEventsEditor() {
 }
 
 function renderAnchors() {
-  if (!els.sleepHint) return;
   const day = getCurrentDay();
-  const sleep = day.anchors.sleep.time;
-
-  if (els.nightOwlToggle) els.nightOwlToggle.checked = day.nightOwl;
   if (els.wakeTimeInput) els.wakeTimeInput.value = day.anchors.wake.time;
-  if (els.sleepTimeInput) els.sleepTimeInput.value = sleep;
+  if (els.sleepTimeInput) els.sleepTimeInput.value = day.anchors.sleep.time;
   if (els.wakeNotesInput) els.wakeNotesInput.value = day.anchors.wake.notes;
   if (els.sleepNotesInput) els.sleepNotesInput.value = day.anchors.sleep.notes;
-
-  const outOfNormal = !isSleepInNormalRange(sleep);
-  const showWarning = !day.nightOwl && outOfNormal;
-  els.sleepHint.classList.toggle("warn", showWarning);
-  els.sleepHint.textContent = showWarning
-    ? "Sleep time is outside the recommended 20:00-02:00 range."
-    : "Recommended sleep window: 20:00-02:00 when Night Owl is off.";
 }
 
 function startNowNextTicker() {
@@ -584,6 +532,12 @@ function toISO(date) {
   return `${year}-${month}-${day}`;
 }
 
+function addDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function isISODate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -608,11 +562,6 @@ function isActiveEntryNow(entry, nowMins) {
 function formatEntryLabel(entry) {
   const overnight = toMinutes(entry.end) < toMinutes(entry.start);
   return `${entry.start}-${entry.end}${overnight ? " (+1 day)" : ""} ${entry.title}`;
-}
-
-function isSleepInNormalRange(time) {
-  const mins = toMinutes(time);
-  return mins >= 20 * 60 || mins <= 2 * 60;
 }
 
 function isTime(value) {
